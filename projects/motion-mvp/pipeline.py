@@ -39,6 +39,27 @@ def llm(prompt, max_tokens=1500):
     return data['choices'][0]['message'].get('content') or ''
 
 
+def storyboard_graphic(brief, count=5):
+    prompt = ('你是概念解说视频导演。根据下面的需求写分镜：\n' + brief + f'\n\n'
+              '输出 JSON 对象：{"title":"不超过 10 字的片头标题","cta":"不超过 14 字的片尾标语",'
+              f'"scenes":[共 {count} 个镜头，每个 {{"title":"这一屏的大标题，不超过 12 字",'
+              '"bullets":["要点1","要点2","要点3"],"text":"配音旁白，1-2 句口语，40 字内"}}]}'
+              '。要点要具体、有信息量，不要空话。只输出 JSON。')
+    for attempt in range(2):
+        raw = llm(prompt if attempt == 0 else prompt + '\n注意：只输出 JSON 对象，不要代码块。', 3000)
+        raw = re.sub(r'^```(?:json)?|```$', '', raw.strip(), flags=re.M).strip()
+        match = re.search(r'\{.*\}', raw, re.S)
+        if not match:
+            continue
+        try:
+            board = json.loads(match.group(0))
+        except ValueError:
+            continue
+        if board.get('scenes'):
+            return board
+    return {}
+
+
 def storyboard(brief, count=5):
     prompt = ('你是短视频导演。根据下面的需求写分镜：\n' + brief + f'\n\n'
               '输出 JSON 对象：{"title":"不超过 10 字的片头标题","cta":"不超过 14 字的片尾行动号召",'
@@ -87,6 +108,10 @@ def fetch_image(prompt, path):
 def tts(text, path):
     subprocess.run(['edge-tts', '--voice', 'zh-CN-XiaoxiaoNeural', '--text', text,
                     '--write-media', str(path)], check=True, timeout=180)
+
+
+def duration_of_text(text):
+    return max(3.0, len(text) * 0.22)
 
 
 def duration(path):
@@ -163,11 +188,11 @@ def music_bed(path, seconds, style='warm'):
                         'volume=0.12', '-c:a', 'aac', str(path)], check=True)
 
 
-def build(brief, name='demo', count=5, theme='promo'):
+def build(brief, name='demo', count=5, theme='promo', style='photo'):
     THEME.clear(); THEME.update(THEMES.get(theme, THEMES['promo']))
     work = OUT / name
     work.mkdir(parents=True, exist_ok=True)
-    board = storyboard(brief, count)
+    board = storyboard_graphic(brief, count) if style == 'graphic' else storyboard(brief, count)
     scenes = board.get('scenes') or []
     if not scenes:
         raise SystemExit('storyboard failed')
@@ -179,16 +204,23 @@ def build(brief, name='demo', count=5, theme='promo'):
         image_path = work / f'img{index}.jpg'
         audio_path = work / f'audio{index}.mp3'
         clip_path = work / f'clip{index}.mp4'
-        ok = fetch_image(scene['image'] + ', realistic proportions, natural human anatomy, '
-                         'correct scale, no distorted hands, no extra limbs, no text', image_path)
-        if not ok:
-            raise SystemExit(f'image {index} failed')
-        tts(scene['text'], audio_path)
+        tts(scene.get('text', ''), audio_path)
         clip_dur = max(2.6, duration(audio_path) + 0.6)
-        scene_clip(image_path, wrap(scene['text']), clip_dur, clip_path)
+        if style == 'graphic':
+            import graph_scene
+            graph_scene.render(str(clip_path), scene.get('title', ''),
+                               scene.get('bullets', []), clip_dur,
+                               label='概念解说', kind='flow' if index == count - 1 else 'list')
+        else:
+            ok = fetch_image(
+                scene['image'] + ', realistic proportions, natural human anatomy, '
+                'correct scale, no distorted hands, no extra limbs, no text', image_path)
+            if not ok:
+                raise SystemExit(f'image {index} failed')
+            scene_clip(image_path, wrap(scene['text']), clip_dur, clip_path)
         clips.append(clip_path)
         audios.append(audio_path)
-        print(f'scene {index}: {clip_dur:.1f}s {scene["text"][:30]}', flush=True)
+        print(f'scene {index}: {clip_dur:.1f}s {scene.get("text", "")[:30]}', flush=True)
     title_seconds, cta_seconds = 2.6, 3.2
     title = work / 'title.mp4'
     cta = work / 'cta.mp4'
@@ -246,5 +278,6 @@ if __name__ == '__main__':
     brief = sys.argv[1] if len(sys.argv) > 1 else '便利店开业宣传，30 秒，亲切口语'
     name = sys.argv[2] if len(sys.argv) > 2 else 'demo'
     theme = sys.argv[3] if len(sys.argv) > 3 else 'promo'
-    result = build(brief, name, theme=theme)
+    style = sys.argv[4] if len(sys.argv) > 4 else 'photo'
+    result = build(brief, name, theme=theme, style=style)
     print('done:', result, f'{duration(result):.1f}s')

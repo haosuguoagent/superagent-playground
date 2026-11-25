@@ -30,6 +30,13 @@ python3 pipeline.py "便利店开业宣传，30 秒，亲切口语" my-video
 
 用法：`python3 pipeline.py "…" name tech`（第三参数为主题）。
 
+## 图形解说模式（style=graphic）
+
+纯概念解说，不出图，用 Pillow 逐帧渲染动态图形：
+网格底 + 强调色、标题下划线生长、要点逐条淡入、流程图（输入→计算→输出）箭头流动、底部进度条。
+
+`python3 pipeline.py "科技解说：本地大模型怎么跑" demo tech graphic`
+
 ## 已知限制
 
 - 无背景音乐、无转场特效（只有硬切 + 淡入淡出）；
