@@ -43,7 +43,7 @@ def storyboard_graphic(brief, count=5):
     prompt = ('你是概念解说视频导演。根据下面的需求写分镜：\n' + brief + f'\n\n'
               '输出 JSON 对象：{"title":"不超过 10 字的片头标题","cta":"不超过 14 字的片尾标语",'
               f'"scenes":[共 {count} 个镜头，每个 {{"title":"这一屏的大标题，不超过 12 字",'
-              '"bullets":["要点1","要点2","要点3"],"figure":"brain|chip|triangle|bars|flow 里选一个最贴切的示意图形",'
+              '"bullets":["要点1","要点2","要点3"],"figure":"brain|chip|triangle|bars|split|tokens|gear|database|flow 里选一个最贴切的示意图形（切分用 split，词元用 tokens）",'
               '"text":"配音旁白，1-2 句口语，40 字内"}}]}'
               '。要点要具体、有信息量，不要空话。只输出 JSON。')
     for attempt in range(2):

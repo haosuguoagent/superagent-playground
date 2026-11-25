@@ -149,7 +149,97 @@ def draw_bars(draw, cx, cy, scale, alpha, t):
                                outline=ACCENT + (a,), width=2)
 
 
-FIGURES = {'brain': draw_brain, 'triangle': draw_triangle, 'chip': draw_chip, 'bars': draw_bars}
+
+
+def draw_split(draw, cx, cy, scale, alpha, t):
+    """A sentence block being cut apart: slicing line sweeps, pieces separate."""
+    a = int(230 * alpha)
+    block_w, block_h = 420, 96
+    gap = ease((t - 1.0) / 0.9) * 26
+    cut = ease((t - 0.6) / 0.8)
+    pieces = 3
+    piece_w = block_w / pieces
+    for index in range(pieces):
+        x0 = cx - block_w / 2 + index * piece_w + index * gap - gap * (pieces - 1) / 2
+        draw.rounded_rectangle([x0, cy - block_h / 2, x0 + piece_w - 6, cy + block_h / 2],
+                               radius=10, fill=(167, 139, 250, int(28 * alpha)),
+                               outline=ACCENT2 + (a,), width=2)
+        for line in range(2):
+            y = cy - 16 + line * 26
+            draw.line([(x0 + 14, y), (x0 + piece_w - 26, y)],
+                      fill=(226, 232, 240, int(120 * alpha)), width=3)
+    # slicing beam
+    if 0 < cut < 1:
+        x = cx - block_w / 2 + block_w * cut
+        draw.line([(x, cy - block_h / 2 - 30), (x, cy + block_h / 2 + 30)],
+                  fill=ACCENT + (int(230 * alpha),), width=3)
+        draw.ellipse([x - 6, cy - block_h / 2 - 36, x + 6, cy - block_h / 2 - 24],
+                     fill=ACCENT2 + (int(230 * alpha),))
+
+
+def draw_tokens(draw, cx, cy, scale, alpha, t):
+    """A sentence bar resolving into token chips, one chip at a time."""
+    a = int(230 * alpha)
+    bar_w, bar_h = 440, 64
+    draw.rounded_rectangle([cx - bar_w / 2, cy - 120, cx + bar_w / 2, cy - 120 + bar_h],
+                           radius=12, fill=(255, 255, 255, int(16 * alpha)),
+                           outline=ACCENT2 + (int(150 * alpha),), width=2)
+    for line in range(2):
+        y = cy - 104 + line * 22
+        draw.line([(cx - bar_w / 2 + 18, y), (cx + bar_w / 2 - 18, y)],
+                  fill=(226, 232, 240, int(90 * alpha)), width=3)
+    chips = 4
+    chip_w, chip_h, gap = 96, 64, 14
+    total = chips * chip_w + (chips - 1) * gap
+    start_x = cx - total / 2
+    for index in range(chips):
+        appear = ease((t - (1.0 + index * 0.45)) / 0.45)
+        if appear <= 0:
+            continue
+        x = start_x + index * (chip_w + gap)
+        y = cy + 10 + (1 - appear) * 18
+        draw.rounded_rectangle([x, y, x + chip_w, y + chip_h], radius=10,
+                               fill=ACCENT + (int(40 * appear),),
+                               outline=ACCENT2 + (int(210 * appear),), width=2)
+        f = font(FONT_BOLD, 26)
+        label = str(index + 1)
+        draw.text((x + (chip_w - f.getlength(label)) / 2, y + 16), label,
+                  font=f, fill=(255, 255, 255, int(220 * appear)))
+        if index < chips - 1:
+            ax = x + chip_w + 2
+            draw.line([(ax, y + chip_h / 2), (ax + gap - 4, y + chip_h / 2)],
+                      fill=ACCENT2 + (int(150 * appear),), width=2)
+
+
+def draw_gear(draw, cx, cy, scale, alpha, t):
+    a = int(220 * alpha)
+    r = scale * 0.26
+    teeth = 10
+    rotation = t * 0.8
+    for index in range(teeth):
+        angle = rotation + index * (2 * math.pi / teeth)
+        x = cx + math.cos(angle) * (r + 12)
+        y = cy + math.sin(angle) * (r + 12)
+        draw.rectangle([x - 7, y - 7, x + 7, y + 7], fill=ACCENT2 + (a,))
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=ACCENT2 + (a,), width=4)
+    draw.ellipse([cx - r * 0.35, cy - r * 0.35, cx + r * 0.35, cy + r * 0.35],
+                 fill=ACCENT + (int(50 * alpha),), outline=ACCENT + (a,), width=3)
+
+
+def draw_database(draw, cx, cy, scale, alpha, t):
+    a = int(220 * alpha)
+    rw, rh = scale * 0.34, scale * 0.12
+    for index in range(3):
+        y = cy - rh * 1.4 + index * rh * 1.3
+        draw.ellipse([cx - rw, y - rh, cx + rw, y + rh], outline=ACCENT2 + (a,), width=3)
+        if index < 2:
+            draw.line([(cx - rw, y), (cx - rw, y + rh * 1.3)], fill=ACCENT2 + (a,), width=3)
+            draw.line([(cx + rw, y), (cx + rw, y + rh * 1.3)], fill=ACCENT2 + (a,), width=3)
+
+
+FIGURES = {'brain': draw_brain, 'triangle': draw_triangle, 'chip': draw_chip,
+           'bars': draw_bars, 'split': draw_split, 'tokens': draw_tokens,
+           'gear': draw_gear, 'database': draw_database}
 
 
 def draw_flow(draw, top, alpha, t):
@@ -203,9 +293,7 @@ def render(out, title, bullets, seconds, accent='#22d3ee', label='概念解说',
             draw_flow(draw, 250, figure_alpha, t)
         else:
             drawer = FIGURES.get(figure, draw_chip)
-            if figure == 'triangle':
-                drawer(draw, W / 2, fig_cy, 300, figure_alpha, t)
-            elif figure == 'bars':
+            if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
                 drawer(draw, W / 2, fig_cy, 300, figure_alpha, t)
             else:
                 drawer(draw, W / 2, fig_cy, 300, figure_alpha)
