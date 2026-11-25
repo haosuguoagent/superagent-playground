@@ -23,6 +23,13 @@ python3 pipeline.py "便利店开业宣传，30 秒，亲切口语" my-video
 - 显存：SDXL 需约 10GB；本地 qwen 服务与它同时跑会 OOM，出片前先 `systemctl --user stop qwen-local`
 - 千问 key：`~/.openclaw/credentials/qwen.key`
 
+## 主题模板
+
+- `promo`：深色底 + 暖色，适合门店/活动；
+- `tech`：近黑底 + 青色，科技解说风，配脉冲低音 + 空气感 + 转场 whoosh。
+
+用法：`python3 pipeline.py "…" name tech`（第三参数为主题）。
+
 ## 已知限制
 
 - 无背景音乐、无转场特效（只有硬切 + 淡入淡出）；

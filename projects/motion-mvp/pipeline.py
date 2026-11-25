@@ -20,6 +20,12 @@ LLM_URL = 'https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1/chat/comp
 W, H, FPS = 720, 1280, 30
 FONT = '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
 
+THEMES = {
+    'promo': {'bg': '#101820', 'accent': '#ffb703', 'font_size': 44, 'music': 'warm'},
+    'tech': {'bg': '#05060f', 'accent': '#22d3ee', 'font_size': 40, 'music': 'tech'},
+}
+THEME = THEMES['promo']
+
 
 def llm(prompt, max_tokens=1500):
     key = QWEN_KEY.read_text().strip()
@@ -39,14 +45,19 @@ def storyboard(brief, count=5):
               f'"scenes":[共 {count} 个镜头，每个 {{"text":"这一屏的字幕，1-2 句口语","image":"给文生图模型的英文提示词，'
               '具体画面，不要出现文字；人物比例自然（头身比正常、手部完整），物品与人物尺度合理，不要夸张畸变"}}]}'
               '。只输出 JSON。')
-    raw = llm(prompt)
-    match = re.search(r'\{.*\}', raw, re.S)
-    if not match:
-        return {}
-    try:
-        return json.loads(match.group(0))
-    except ValueError:
-        return {}
+    for attempt in range(2):
+        raw = llm(prompt if attempt == 0 else prompt + '\n注意：只输出一个 JSON 对象，不要 markdown 代码块。', 3000)
+        raw = re.sub(r'^```(?:json)?|```$', '', raw.strip(), flags=re.M).strip()
+        match = re.search(r'\{.*\}', raw, re.S)
+        if not match:
+            continue
+        try:
+            board = json.loads(match.group(0))
+        except ValueError:
+            continue
+        if board.get('scenes'):
+            return board
+    return {}
 
 
 def local_image(prompt, path):
@@ -99,15 +110,24 @@ def scene_clip(img, text, dur, out):
           f"zoompan=z='min(zoom+0.0012,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
           f':d={int(dur * FPS)}:s={W}x{H}:fps={FPS},'
           f'fade=t=in:st=0:d=0.35,fade=t=out:st={max(0.0, dur - 0.35):.2f}:d=0.35,'
-          f"drawtext=fontfile={FONT}:textfile={text_file}:fontcolor=white:fontsize=44:"
+          f"drawtext=fontfile={FONT}:textfile={text_file}:fontcolor=white:fontsize={THEME['font_size']}:"
           'line_spacing=14:box=1:boxcolor=black@0.35:boxborderw=20:'
-          'x=(w-text_w)/2:y=h-text_h-150,format=yuv420p')
+          "x=(w-text_w)/2:y=h-text_h-150:alpha='min(t/0.5,1)',format=yuv420p")
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-loop', '1', '-i', str(img),
                     '-t', f'{dur:.2f}', '-vf', vf, '-r', str(FPS), '-c:v', 'libx264',
                     '-preset', 'veryfast', '-crf', '23', str(out)], check=True)
 
 
-def card_clip(path, lines, seconds, bg='#101820', size=(W, H)):
+def whoosh(path, seconds=0.45):
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi',
+                    '-i', f'anoisesrc=d={seconds}:c=pink:r=44100',
+                    '-af', 'highpass=f=400,lowpass=f=2400,afade=t=in:st=0:d=0.05,'
+                           'afade=t=out:st=' + f'{seconds - 0.25}:d=0.25' + ',volume=0.5',
+                    '-c:a', 'aac', str(path)], check=True)
+
+
+def card_clip(path, lines, seconds, bg=None, size=(W, H)):
+    bg = bg or THEME['bg']
     text_file = path.with_suffix('.txt')
     text_file.write_text('\n'.join(lines), encoding='utf-8')
     vf = (f"drawtext=fontfile={FONT}:textfile={text_file}:fontcolor=white:fontsize=60:"
@@ -120,17 +140,31 @@ def card_clip(path, lines, seconds, bg='#101820', size=(W, H)):
                     str(path)], check=True)
 
 
-def music_bed(path, seconds):
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error',
-                    '-f', 'lavfi', '-i', f'sine=frequency=220:duration={seconds}',
-                    '-f', 'lavfi', '-i', f'sine=frequency=277:duration={seconds}',
-                    '-f', 'lavfi', '-i', f'sine=frequency=330:duration={seconds}',
-                    '-filter_complex',
-                    '[0][1][2]amix=inputs=3,tremolo=f=0.15:d=0.25,aecho=0.8:0.9:180:0.35,'
-                    'volume=0.12', '-c:a', 'aac', str(path)], check=True)
+def music_bed(path, seconds, style='warm'):
+    if style == 'tech':
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error',
+                        '-f', 'lavfi', '-i', f'sine=frequency=110:duration={seconds}',
+                        '-f', 'lavfi', '-i', f'sine=frequency=440:duration={seconds}',
+                        '-f', 'lavfi', '-i', f'anoisesrc=d={seconds}:c=pink:r=44100',
+                        '-filter_complex',
+                        '[0]volume=0.18,tremolo=f=2:d=0.6[bass];'
+                        '[1]volume=0.05,tremolo=f=4:d=0.9[arp];'
+                        '[2]highpass=f=3000,volume=0.012[air];'
+                        '[bass][arp][air]amix=inputs=3,aecho=0.8:0.7:90:0.25,'
+                        'volume=0.5[a]',
+                        '-map', '[a]', '-c:a', 'aac', str(path)], check=True)
+    else:
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error',
+                        '-f', 'lavfi', '-i', f'sine=frequency=220:duration={seconds}',
+                        '-f', 'lavfi', '-i', f'sine=frequency=277:duration={seconds}',
+                        '-f', 'lavfi', '-i', f'sine=frequency=330:duration={seconds}',
+                        '-filter_complex',
+                        '[0][1][2]amix=inputs=3,tremolo=f=0.15:d=0.25,aecho=0.8:0.9:180:0.35,'
+                        'volume=0.12', '-c:a', 'aac', str(path)], check=True)
 
 
-def build(brief, name='demo', count=5):
+def build(brief, name='demo', count=5, theme='promo'):
+    THEME.clear(); THEME.update(THEMES.get(theme, THEMES['promo']))
     work = OUT / name
     work.mkdir(parents=True, exist_ok=True)
     board = storyboard(brief, count)
@@ -184,18 +218,33 @@ def build(brief, name='demo', count=5):
                     '-crf', '23', str(work / 'video.mp4')], check=True)
     total = duration(work / 'video.mp4')
     bed = work / 'music.m4a'
-    music_bed(bed, total)
+    music_bed(bed, total, THEME['music'])
+    whoosh_file = work / 'whoosh.m4a'
+    whoosh(whoosh_file)
+    offsets = []
+    cursor = title_seconds
+    for clip in clips[1:-1]:
+        offsets.append(cursor)
+        cursor += duration(clip)
+    inputs = ['-i', str(work / 'video.mp4'), '-i', str(voice_padded), '-i', str(bed)]
+    parts = ['[1:a][2:a]amix=inputs=2:duration=first:weights=1 0.35[base]']
+    labels = ['[base]']
+    for index, offset in enumerate(offsets[:6]):
+        inputs += ['-i', str(whoosh_file)]
+        parts.append(f'[{3 + index}:a]adelay={int(offset * 1000)}|{int(offset * 1000)}[w{index}]')
+        labels.append(f'[w{index}]')
+    parts.append(''.join(labels) + f'amix=inputs={len(labels)}:duration=first:weights=' +
+                 ' '.join(['1'] + ['0.7'] * (len(labels) - 1)) + '[a]')
     final = work / 'final.mp4'
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error',
-                    '-i', str(work / 'video.mp4'), '-i', str(voice_padded), '-i', str(bed),
-                    '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first:weights=1 0.35[a]',
-                    '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac',
-                    '-shortest', str(final)], check=True)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error'] + inputs +
+                   ['-filter_complex', ';'.join(parts), '-map', '0:v', '-map', '[a]',
+                    '-c:v', 'copy', '-c:a', 'aac', '-shortest', str(final)], check=True)
     return final
 
 
 if __name__ == '__main__':
     brief = sys.argv[1] if len(sys.argv) > 1 else '便利店开业宣传，30 秒，亲切口语'
     name = sys.argv[2] if len(sys.argv) > 2 else 'demo'
-    result = build(brief, name)
+    theme = sys.argv[3] if len(sys.argv) > 3 else 'promo'
+    result = build(brief, name, theme=theme)
     print('done:', result, f'{duration(result):.1f}s')
