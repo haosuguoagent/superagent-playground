@@ -16,7 +16,8 @@ MARGIN = 64
 GRID = 8
 FONT_BOLD = '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
 FONT_REG = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
-ACCENT = (34, 211, 238)
+ACCENT = (167, 139, 250)   # violet
+ACCENT2 = (34, 211, 238)  # cyan
 
 
 def font(path, size):
@@ -32,20 +33,45 @@ def snap(value):
     return int(round(value / GRID) * GRID)
 
 
+def corner_brackets(draw, box, color, alpha=200, size=26, width=2):
+    x0, y0, x1, y1 = box
+    for (cx, cy, dx, dy) in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+        draw.line([(cx, cy), (cx + dx * size, cy)], fill=color + (alpha,), width=width)
+        draw.line([(cx, cy), (cx, cy + dy * size)], fill=color + (alpha,), width=width)
+
+
+def hud_ticks(draw, color, alpha=90):
+    for y in range(160, H - 120, 48):
+        draw.line([(28, y), (40, y)], fill=color + (alpha,), width=2)
+        draw.line([(W - 40, y), (W - 28, y)], fill=color + (alpha,), width=2)
+    for x in range(120, W - 100, 64):
+        draw.line([(x, 46), (x, 56)], fill=color + (alpha,), width=2)
+
+
+def scanlines(draw, top, bottom, alpha=14):
+    for y in range(top, bottom, 6):
+        draw.line([(MARGIN - 24, y), (W - MARGIN + 24, y)], fill=(255, 255, 255, alpha), width=1)
+
+
 def background(draw):
-    draw.rectangle([0, 0, W, H], fill='#05070f')
+    draw.rectangle([0, 0, W, H], fill='#080414')
     for x in range(0, W + GRID, GRID * 8):
         draw.line([(x, 0), (x, H)], fill=(255, 255, 255, 7), width=1)
     for y in range(0, H + GRID, GRID * 8):
         draw.line([(0, y), (W, y)], fill=(255, 255, 255, 7), width=1)
-    draw.ellipse([W * 0.12, -280, W * 0.88, 400], fill=ACCENT + (12,))
-    draw.ellipse([-220, H - 540, 380, H + 100], fill=(99, 102, 241, 10))
+    draw.ellipse([W * 0.10, -300, W * 0.90, 420], fill=ACCENT + (16,))
+    draw.ellipse([-240, H - 560, 400, H + 120], fill=(34, 211, 238, 8))
+    for radius in (150, 240, 330):
+        draw.ellipse([W / 2 - radius, 320 - radius, W / 2 + radius, 320 + radius],
+                     outline=ACCENT + (10,), width=1)
 
 
-def glass_panel(draw, box, alpha=22):
+def glass_panel(draw, box, alpha=22, brackets=True):
     x0, y0, x1, y1 = [snap(v) for v in box]
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=20, fill=(255, 255, 255, alpha))
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=20, outline=ACCENT + (46,), width=1)
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=18, fill=(255, 255, 255, alpha))
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=18, outline=ACCENT + (70,), width=1)
+    if brackets:
+        corner_brackets(draw, (x0, y0, x1, y1), ACCENT2, alpha=170, size=22, width=2)
 
 
 def wrap_text(text, size, max_width, bold=False):
@@ -71,14 +97,14 @@ def draw_brain(draw, cx, cy, scale, alpha):
         x = cx + math.cos(rad) * r * 0.55
         y = cy + math.sin(rad) * r * 0.55
         draw.ellipse([x - r * 0.42, y - r * 0.42, x + r * 0.42, y + r * 0.42],
-                     outline=ACCENT + (a,), width=3)
+                     outline=ACCENT2 + (a,), width=3)
     draw.ellipse([cx - r * 0.3, cy - r * 0.3, cx + r * 0.3, cy + r * 0.3],
-                 fill=ACCENT + (int(40 * alpha),), outline=ACCENT + (a,), width=3)
+                 fill=ACCENT + (int(40 * alpha),), outline=ACCENT2 + (a,), width=3)
     for angle in range(0, 360, 60):
         rad = math.radians(angle + 30)
         draw.line([(cx + math.cos(rad) * r * 0.3, cy + math.sin(rad) * r * 0.3),
                    (cx + math.cos(rad) * r * 0.55, cy + math.sin(rad) * r * 0.55)],
-                  fill=ACCENT + (int(150 * alpha),), width=2)
+                  fill=ACCENT2 + (int(150 * alpha),), width=2)
 
 
 def draw_triangle(draw, cx, cy, scale, alpha, t):
@@ -134,8 +160,8 @@ def draw_flow(draw, top, alpha, t):
     for index, text in enumerate(boxes):
         x = start_x + index * (box_w + gap)
         draw.rounded_rectangle([x, top, x + box_w, top + box_h], radius=14,
-                               fill=(15, 23, 42, int(210 * alpha)),
-                               outline=ACCENT + (int(180 * alpha),), width=2)
+                               fill=(13, 20, 38, int(240 * alpha)),
+                               outline=ACCENT2 + (int(230 * alpha),), width=3)
         f = font(FONT_BOLD, 30)
         draw.text((x + (box_w - f.getlength(text)) / 2, top + 26), text,
                   font=f, fill=(255, 255, 255, int(225 * alpha)))
@@ -164,10 +190,12 @@ def render(out, title, bullets, seconds, accent='#22d3ee', label='概念解说',
         image = Image.new('RGB', (W, H), '#05070f')
         draw = ImageDraw.Draw(image, 'RGBA')
         background(draw)
+        hud_ticks(draw, ACCENT2)
         # header label, grid-aligned
         label_w = small_font.getlength(label) + 40
         glass_panel(draw, (MARGIN, 80, MARGIN + label_w, 128), alpha=26)
         draw.text((MARGIN + 20, 90), label, font=small_font, fill=ACCENT + (220,))
+        scanlines(draw, 210, 430)
         # figure area
         figure_alpha = ease((t - 0.1) / 0.7)
         fig_cy = 300
@@ -194,22 +222,26 @@ def render(out, title, bullets, seconds, accent='#22d3ee', label='概念解说',
         underline_y = panel_top + 30 + len(title_lines) * 70 + 12
         draw.rounded_rectangle([MARGIN, underline_y, MARGIN + int(160 * grow), underline_y + 6],
                                radius=3, fill=ACCENT + (230,))
-        # bullets panel
+        # bullets panel sized to the wrapped text
+        layout = [(wrap_text(bullet, 32, W - MARGIN * 2 - 40)[:3], bullet)
+                  for bullet in bullets[:3]]
         bullets_top = panel_top + panel_h + 32
-        bullets_h = 24 + min(3, len(bullets)) * 78
+        bullets_h = 28 + sum(len(lines) * 42 + 22 for lines, _ in layout)
         glass_panel(draw, (MARGIN - 24, bullets_top, W - MARGIN + 24, bullets_top + bullets_h),
                     alpha=16)
-        for bullet_index, bullet in enumerate(bullets[:3]):
+        y = bullets_top + 20
+        for bullet_index, (lines, _) in enumerate(layout):
             start = 0.9 + bullet_index * 0.6
             alpha = ease((t - start) / 0.5)
-            if alpha <= 0:
-                continue
-            y = bullets_top + 20 + bullet_index * 78 + (1 - alpha) * 16
-            draw.ellipse([MARGIN, y + 12, MARGIN + 10, y + 22], fill=ACCENT + (int(220 * alpha),))
-            lines = wrap_text(bullet, 32, W - MARGIN * 2 - 40)
-            for line_index, line in enumerate(lines[:2]):
-                draw.text((MARGIN + 28, y + line_index * 42), line, font=bullet_font,
-                          fill=(226, 232, 240, int(225 * alpha)))
+            block_h = len(lines) * 42 + 22
+            if alpha > 0:
+                off = (1 - alpha) * 16
+                draw.ellipse([MARGIN, y + 10 + off, MARGIN + 10, y + 20 + off],
+                             fill=ACCENT + (int(220 * alpha),))
+                for line_index, line in enumerate(lines):
+                    draw.text((MARGIN + 28, y + off + line_index * 42), line,
+                              font=bullet_font, fill=(226, 232, 240, int(225 * alpha)))
+            y += block_h
         # progress
         progress = min(1.0, t / seconds)
         draw.rectangle([0, H - 6, int(W * progress), H], fill=ACCENT + (200,))

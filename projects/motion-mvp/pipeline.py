@@ -107,8 +107,17 @@ def fetch_image(prompt, path):
 
 
 def tts(text, path):
-    subprocess.run(['edge-tts', '--voice', 'zh-CN-XiaoxiaoNeural', '--text', text,
-                    '--write-media', str(path)], check=True, timeout=180)
+    import time
+    last = None
+    for attempt in range(4):
+        result = subprocess.run(['edge-tts', '--voice', 'zh-CN-XiaoxiaoNeural',
+                                 '--text', text, '--write-media', str(path)],
+                                capture_output=True, text=True, timeout=180)
+        if result.returncode == 0 and path.exists() and path.stat().st_size > 1000:
+            return
+        last = result.stderr or result.stdout
+        time.sleep(2 + attempt * 3)
+    raise SystemExit('tts failed: ' + (last or '')[-300:])
 
 
 def duration_of_text(text):
@@ -209,8 +218,9 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
         clip_dur = max(2.6, duration(audio_path) + 0.6)
         if style == 'graphic':
             import graph_scene
+            bullets = scene.get('bullets') or [scene.get('text', '')[:24]]
             graph_scene.render(str(clip_path), scene.get('title', ''),
-                               scene.get('bullets', []), clip_dur,
+                               bullets, clip_dur,
                                label='概念解说', kind='flow' if index == count - 1 else 'list',
                                figure=scene.get('figure', 'chip'))
         else:
