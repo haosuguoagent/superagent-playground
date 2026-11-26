@@ -61,6 +61,28 @@ def storyboard_graphic(brief, count=5):
     return {}
 
 
+def storyboard_insight(brief, count=5):
+    prompt = ('你是科技解说视频编导。根据需求写分镜：\n' + brief + f'\n\n'
+              '输出 JSON 对象：{"title":"片头标题，20 字内","cta":"片尾标语，14 字内",'
+              f'"scenes":[共 {count} 个镜头，每个 {{"title":"这一屏顶部标题，18 字内，可含一个具体数字或判断",'
+              '"items":["论据1","论据2"],"highlight":"一句加粗结论，15 字内","figure":'
+              '"brain|chip|triangle|bars|split|tokens|gear|database|flow 选一个",'
+              '"text":"配音旁白，40 字内"}}]}。只输出 JSON。')
+    for attempt in range(2):
+        raw = llm(prompt if attempt == 0 else prompt + '\n注意：只输出 JSON 对象。', 3000)
+        raw = re.sub(r'^```(?:json)?|```$', '', raw.strip(), flags=re.M).strip()
+        match = re.search(r'\{.*\}', raw, re.S)
+        if not match:
+            continue
+        try:
+            board = json.loads(match.group(0))
+        except ValueError:
+            continue
+        if board.get('scenes'):
+            return board
+    return {}
+
+
 def storyboard(brief, count=5):
     prompt = ('你是短视频导演。根据下面的需求写分镜：\n' + brief + f'\n\n'
               '输出 JSON 对象：{"title":"不超过 10 字的片头标题","cta":"不超过 14 字的片尾行动号召",'
@@ -202,7 +224,12 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
     THEME.clear(); THEME.update(THEMES.get(theme, THEMES['promo']))
     work = OUT / name
     work.mkdir(parents=True, exist_ok=True)
-    board = storyboard_graphic(brief, count) if style == 'graphic' else storyboard(brief, count)
+    if style == 'graphic':
+        board = storyboard_graphic(brief, count)
+    elif style == 'insight':
+        board = storyboard_insight(brief, count)
+    else:
+        board = storyboard(brief, count)
     scenes = board.get('scenes') or []
     if not scenes:
         raise SystemExit('storyboard failed')
@@ -216,7 +243,13 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
         clip_path = work / f'clip{index}.mp4'
         tts(scene.get('text', ''), audio_path)
         clip_dur = max(2.6, duration(audio_path) + 0.6)
-        if style == 'graphic':
+        if style == 'insight':
+            import graph_scene
+            graph_scene.render_insight(str(clip_path), scene.get('title', ''),
+                                       scene.get('items', []), scene.get('highlight', ''),
+                                       scene.get('text', ''), clip_dur,
+                                       figure=scene.get('figure', 'brain'))
+        elif style == 'graphic':
             import graph_scene
             bullets = scene.get('bullets') or [scene.get('text', '')[:24]]
             graph_scene.render(str(clip_path), scene.get('title', ''),

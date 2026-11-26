@@ -341,3 +341,111 @@ def render(out, title, bullets, seconds, accent='#22d3ee', label='概念解说',
         path.unlink()
     frames_dir.rmdir()
     return out
+
+
+def mesh(draw, top, bottom, color=(80, 120, 255), alpha=60):
+    """Wireframe mesh band, echoing the reference channel's header/footer art."""
+    step = 84
+    for x in range(-80, W + 80, step):
+        draw.line([(x, top), (x, bottom)], fill=color + (alpha // 3,), width=1)
+    for y in range(top, bottom, step // 2):
+        draw.line([(0, y), (W, y)], fill=color + (alpha // 3,), width=1)
+    for x in range(-80, W + 80, step):
+        for y in range(top, bottom, step // 2):
+            draw.ellipse([x - 2, y - 2, x + 2, y + 2], fill=color + (alpha,))
+            if (x // step + y // (step // 2)) % 3 == 0:
+                draw.line([(x, y), (x + step, y + step // 2)], fill=color + (alpha // 2,), width=1)
+
+
+def render_insight(out, title, items, highlight, subtitle, seconds, figure='brain',
+                   brand='小千 · 概念解说', figure_size=280):
+    frames_dir = Path(out).with_suffix('')
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    total = int(seconds * FPS)
+    title_font = font(FONT_BOLD, 52)
+    item_font = font(FONT_REG, 30)
+    small_font = font(FONT_REG, 22)
+    highlight_font = font(FONT_BOLD, 44)
+    sub_font = font(FONT_REG, 34)
+    for index in range(total):
+        t = index / FPS
+        image = Image.new('RGB', (W, H), '#05070f')
+        draw = ImageDraw.Draw(image, 'RGBA')
+        draw.rectangle([0, 0, W, H], fill='#05070f')
+        mesh(draw, 30, 260)
+        mesh(draw, 950, 1130)
+        # header: three title lines, centered
+        title_lines = wrap_text(title, 46, W - 100, bold=True)[:3]
+        for line_index, line in enumerate(title_lines):
+            f = font(FONT_BOLD, 46)
+            x = (W - f.getlength(line)) / 2
+            y = 70 + line_index * 62
+            draw.text((x + 2, y + 2), line, font=f, fill=(0, 0, 0, 160))
+            draw.text((x, y), line, font=f, fill=(255, 255, 255, 245))
+        # items column
+        y = 330
+        for item_index, item in enumerate(items[:3]):
+            appear = ease((t - 0.6 - item_index * 0.55) / 0.5)
+            if appear <= 0:
+                continue
+            num = f'{item_index + 1:02d}'
+            draw.rounded_rectangle([MARGIN, y + 2, MARGIN + 58, y + 40], radius=6,
+                                   fill=(80, 120, 255, int(40 * appear)),
+                                   outline=(120, 160, 255, int(180 * appear)))
+            nf = font(FONT_REG, 22)
+            draw.text((MARGIN + 12, y + 10), num, font=nf,
+                      fill=(180, 200, 255, int(220 * appear)))
+            lines = wrap_text(item, 30, 360)
+            for line_index, line in enumerate(lines[:2]):
+                draw.text((MARGIN + 72, y + line_index * 40), line, font=item_font,
+                          fill=(226, 232, 240, int(220 * appear)))
+            y += 40 * min(2, len(lines)) + 26
+        # highlight statement with boxed keyword
+        if highlight:
+            appear = ease((t - 1.4) / 0.6)
+            if appear > 0:
+                hy = y + 24
+                lines = wrap_text(highlight, 40, 420, bold=True)[:2]
+                hfont = font(FONT_BOLD, 40)
+                box_h = len(lines) * 54 + 18
+                draw.rounded_rectangle([MARGIN - 8, hy - 8, MARGIN + 430, hy + box_h],
+                                       radius=8, fill=(255, 255, 255, int(26 * appear)),
+                                       outline=(255, 255, 255, int(110 * appear)))
+                for line_index, line in enumerate(lines):
+                    draw.text((MARGIN, hy + line_index * 54), line, font=hfont,
+                              fill=(255, 255, 255, int(242 * appear)))
+        # figure on the right
+        fig_alpha = ease((t - 0.3) / 0.7)
+        drawer = FIGURES.get(figure, draw_brain)
+        if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
+            drawer(draw, W - 170, 640, 240, fig_alpha, t)
+        elif figure == 'flow':
+            pass
+        else:
+            drawer(draw, W - 170, 640, 240, fig_alpha)
+        # english annotation, monospace feel
+        note = 'COMPOUND × N' if figure in ('brain', 'gear', 'bars') else 'PIPELINE :: OK'
+        draw.text((W - 300, 520), note, font=small_font, fill=(140, 170, 255, int(160 * fig_alpha)))
+        # brand watermark
+        draw.text((W / 2 - 90, 900), brand, font=font(FONT_BOLD, 30),
+                  fill=(255, 255, 255, 60))
+        draw.text((W / 2 - 120, 940), '在这里看得更远一点', font=small_font,
+                  fill=(255, 255, 255, 45))
+        # subtitle band
+        sub_alpha = ease((t - 0.2) / 0.6) * 230
+        draw.rectangle([0, 1030, W, 1160], fill=(0, 0, 0, int(sub_alpha * 0.55)))
+        sub_lines = wrap_text(subtitle, 34, W - 140)
+        for line_index, line in enumerate(sub_lines[:2]):
+            f = sub_font
+            draw.text(((W - f.getlength(line)) / 2, 1056 + line_index * 44), line,
+                      font=f, fill=(255, 255, 255, int(sub_alpha)))
+        progress = min(1.0, t / seconds)
+        draw.rectangle([0, H - 6, int(W * progress), H], fill=(80, 120, 255, 220))
+        image.save(frames_dir / f'{index:04d}.png')
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS),
+                    '-i', str(frames_dir / '%04d.png'), '-c:v', 'libx264', '-preset',
+                    'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', str(out)], check=True)
+    for path in frames_dir.glob('*.png'):
+        path.unlink()
+    frames_dir.rmdir()
+    return out
