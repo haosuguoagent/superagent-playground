@@ -383,7 +383,7 @@ def mesh(draw, top, bottom, color=(80, 120, 255), alpha=60):
 def draw_flow_compact(draw, cx, cy, alpha, t):
     """Vertical three-step flow that fits the right-hand figure column."""
     labels = ['输入', '计算', '输出']
-    box_w, box_h, gap = 190, 66, 22
+    box_w, box_h, gap = 176, 62, 20
     top = cy - (box_h * 3 + gap * 2) / 2
     for index, text in enumerate(labels):
         y = top + index * (box_h + gap)
@@ -407,7 +407,7 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
     frames_dir = Path(out).with_suffix('')
     frames_dir.mkdir(parents=True, exist_ok=True)
     total = int(seconds * FPS)
-    item_font = font(FONT_REG, 28)
+    item_font = font(FONT_REG, 26)
     small_font = font(FONT_REG, 21)
     highlight_font = font(FONT_BOLD, 40)
     sub_font = font(FONT_REG, 32)
@@ -428,7 +428,7 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
             draw.text((x + 2, y + 2), line, font=f, fill=(0, 0, 0, 150))
             draw.text((x, y), line, font=f, fill=(255, 255, 255, 245))
         # divider between text and figure columns
-        draw.line([(470, 300), (470, 660)], fill=(90, 130, 255, int(70 * breathe)), width=1)
+        draw.line([(455, 300), (455, 660)], fill=(90, 130, 255, int(70 * breathe)), width=1)
         # text column
         y = 310
         for item_index, item in enumerate(items[:3]):
@@ -438,20 +438,20 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
             label_box(draw, MARGIN, y + 2, f'{item_index + 1:02d}', 52, 36,
                       outline=(120, 160, 255, int(170 * appear)),
                       fill=(80, 120, 255, int(36 * appear)), start=22, pad=8)
-            lines = wrap_text(item, 28, 336)
+            lines = wrap_text(item, 26, 300)
             for line_index, line in enumerate(lines[:3]):
-                draw.text((MARGIN + 64, y + line_index * 36), line, font=item_font,
+                draw.text((MARGIN + 64, y + line_index * 34), line, font=item_font,
                           fill=(226, 232, 240, int(215 * appear)))
-            y += 36 * min(3, len(lines)) + 30
+            y += 34 * min(3, len(lines)) + 26
         # figure column, breathing alpha
         fig_alpha = ease((t - 0.3) / 0.7) * breathe
         drawer = FIGURES.get(figure, draw_brain)
         if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
-            drawer(draw, W - 150, 430, 160, fig_alpha, t)
+            drawer(draw, W - 135, 430, 150, fig_alpha, t)
         elif figure == 'flow':
-            draw_flow_compact(draw, W - 150, 430, fig_alpha, t)
+            draw_flow_compact(draw, W - 135, 430, fig_alpha, t)
         else:
-            drawer(draw, W - 150, 430, 160, fig_alpha)
+            drawer(draw, W - 135, 430, 150, fig_alpha)
         note = 'COMPOUND × N' if figure in ('brain', 'gear', 'bars') else 'PIPELINE :: OK'
         draw.text((W - 280, 610), note, font=small_font,
                   fill=(140, 170, 255, int(150 * fig_alpha)))
@@ -495,7 +495,7 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
 def draw_flow_compact(draw, cx, cy, alpha, t):
     """Vertical three-step flow that fits the right-hand figure column."""
     labels = ['输入', '计算', '输出']
-    box_w, box_h, gap = 190, 66, 22
+    box_w, box_h, gap = 176, 62, 20
     top = cy - (box_h * 3 + gap * 2) / 2
     for index, text in enumerate(labels):
         y = top + index * (box_h + gap)
