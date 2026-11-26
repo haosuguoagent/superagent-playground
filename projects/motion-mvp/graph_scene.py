@@ -89,6 +89,33 @@ def wrap_text(text, size, max_width, bold=False):
     return lines
 
 
+
+
+def fit_font(text, max_w, max_h, start=28, pad=16, bold=True):
+    """Shrink until the text fits the box with a consistent padding."""
+    size = start
+    while size > 12:
+        f = font(FONT_BOLD if bold else FONT_REG, size)
+        if f.getlength(text) <= max_w - 2 * pad and size <= max_h - 2 * pad:
+            return f, size
+        size -= 1
+    return font(FONT_BOLD if bold else FONT_REG, 12), 12
+
+
+def label_box(draw, x, y, text, w, h, outline, fill=None, pad=16, start=30, text_color=(255, 255, 255)):
+    """Box with text fitted and optically centered; identical padding everywhere."""
+    f, size = fit_font(text, w, h, start=start, pad=pad)
+    if fill:
+        draw.rounded_rectangle([x, y, x + w, y + h], radius=10, fill=fill,
+                               outline=outline, width=2)
+    else:
+        draw.rounded_rectangle([x, y, x + w, y + h], radius=10, outline=outline, width=2)
+    tw = f.getlength(text)
+    asc, desc = f.getmetrics()
+    th = asc + desc
+    draw.text((x + (w - tw) / 2, y + (h - th) / 2 + 2), text, font=f, fill=text_color)
+
+
 def draw_brain(draw, cx, cy, scale, alpha):
     a = int(210 * alpha)
     r = scale * 0.42
@@ -198,13 +225,9 @@ def draw_tokens(draw, cx, cy, scale, alpha, t):
             continue
         x = start_x + index * (chip_w + gap)
         y = cy + 10 + (1 - appear) * 18
-        draw.rounded_rectangle([x, y, x + chip_w, y + chip_h], radius=10,
-                               fill=ACCENT + (int(40 * appear),),
-                               outline=ACCENT2 + (int(210 * appear),), width=2)
-        f = font(FONT_BOLD, 26)
-        label = str(index + 1)
-        draw.text((x + (chip_w - f.getlength(label)) / 2, y + 16), label,
-                  font=f, fill=(255, 255, 255, int(220 * appear)))
+        label_box(draw, x, y, str(index + 1), chip_w, chip_h,
+                  outline=ACCENT2 + (int(210 * appear),),
+                  fill=ACCENT + (int(40 * appear),), start=26)
         if index < chips - 1:
             ax = x + chip_w + 2
             draw.line([(ax, y + chip_h / 2), (ax + gap - 4, y + chip_h / 2)],
@@ -364,12 +387,9 @@ def draw_flow_compact(draw, cx, cy, alpha, t):
     top = cy - (box_h * 3 + gap * 2) / 2
     for index, text in enumerate(labels):
         y = top + index * (box_h + gap)
-        draw.rounded_rectangle([cx - box_w / 2, y, cx + box_w / 2, y + box_h], radius=12,
-                               fill=(13, 20, 38, int(235 * alpha)),
-                               outline=ACCENT2 + (int(220 * alpha),), width=2)
-        f = font(FONT_BOLD, 26)
-        draw.text((cx - f.getlength(text) / 2, y + 18), text, font=f,
-                  fill=(255, 255, 255, int(225 * alpha)))
+        label_box(draw, cx - box_w / 2, y, text, box_w, box_h,
+                  outline=ACCENT2 + (int(220 * alpha),),
+                  fill=(13, 20, 38, int(235 * alpha)), start=26)
         if index < 2:
             ax = cx
             ay0 = y + box_h + 2
@@ -415,17 +435,14 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
             appear = ease((t - 0.5 - item_index * 0.5) / 0.5)
             if appear <= 0:
                 continue
-            draw.rounded_rectangle([MARGIN, y + 2, MARGIN + 52, y + 36], radius=6,
-                                   fill=(80, 120, 255, int(36 * appear)),
-                                   outline=(120, 160, 255, int(170 * appear)))
-            nf = font(FONT_REG, 20)
-            draw.text((MARGIN + 11, y + 9), f'{item_index + 1:02d}', font=nf,
-                      fill=(180, 200, 255, int(215 * appear)))
-            lines = wrap_text(item, 28, 340)
+            label_box(draw, MARGIN, y + 2, f'{item_index + 1:02d}', 52, 36,
+                      outline=(120, 160, 255, int(170 * appear)),
+                      fill=(80, 120, 255, int(36 * appear)), start=22, pad=8)
+            lines = wrap_text(item, 28, 336)
             for line_index, line in enumerate(lines[:3]):
                 draw.text((MARGIN + 64, y + line_index * 36), line, font=item_font,
                           fill=(226, 232, 240, int(215 * appear)))
-            y += 36 * min(3, len(lines)) + 26
+            y += 36 * min(3, len(lines)) + 30
         # figure column, breathing alpha
         fig_alpha = ease((t - 0.3) / 0.7) * breathe
         drawer = FIGURES.get(figure, draw_brain)
@@ -482,12 +499,9 @@ def draw_flow_compact(draw, cx, cy, alpha, t):
     top = cy - (box_h * 3 + gap * 2) / 2
     for index, text in enumerate(labels):
         y = top + index * (box_h + gap)
-        draw.rounded_rectangle([cx - box_w / 2, y, cx + box_w / 2, y + box_h], radius=12,
-                               fill=(13, 20, 38, int(235 * alpha)),
-                               outline=ACCENT2 + (int(220 * alpha),), width=2)
-        f = font(FONT_BOLD, 26)
-        draw.text((cx - f.getlength(text) / 2, y + 18), text, font=f,
-                  fill=(255, 255, 255, int(225 * alpha)))
+        label_box(draw, cx - box_w / 2, y, text, box_w, box_h,
+                  outline=ACCENT2 + (int(220 * alpha),),
+                  fill=(13, 20, 38, int(235 * alpha)), start=26)
         if index < 2:
             ax = cx
             ay0 = y + box_h + 2
