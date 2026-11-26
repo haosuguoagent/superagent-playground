@@ -357,6 +357,30 @@ def mesh(draw, top, bottom, color=(80, 120, 255), alpha=60):
                 draw.line([(x, y), (x + step, y + step // 2)], fill=color + (alpha // 2,), width=1)
 
 
+def draw_flow_compact(draw, cx, cy, alpha, t):
+    """Vertical three-step flow that fits the right-hand figure column."""
+    labels = ['输入', '计算', '输出']
+    box_w, box_h, gap = 190, 66, 22
+    top = cy - (box_h * 3 + gap * 2) / 2
+    for index, text in enumerate(labels):
+        y = top + index * (box_h + gap)
+        draw.rounded_rectangle([cx - box_w / 2, y, cx + box_w / 2, y + box_h], radius=12,
+                               fill=(13, 20, 38, int(235 * alpha)),
+                               outline=ACCENT2 + (int(220 * alpha),), width=2)
+        f = font(FONT_BOLD, 26)
+        draw.text((cx - f.getlength(text) / 2, y + 18), text, font=f,
+                  fill=(255, 255, 255, int(225 * alpha)))
+        if index < 2:
+            ax = cx
+            ay0 = y + box_h + 2
+            for dash in range(3):
+                offset = (t * 50 + dash * 7) % 18
+                draw.line([(ax, ay0 + offset), (ax, ay0 + offset + 6)],
+                          fill=ACCENT + (int(200 * alpha),), width=3)
+            dot_y = ay0 + 4 + (t * 50) % 18
+            draw.ellipse([ax - 3, dot_y - 3, ax + 3, dot_y + 3], fill=ACCENT2 + (int(230 * alpha),))
+
+
 def render_insight(out, title, items, highlight, subtitle, seconds, figure='brain',
                    brand='小千 · 概念解说', figure_size=280):
     frames_dir = Path(out).with_suffix('')
@@ -420,12 +444,12 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
         if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
             drawer(draw, W - 170, 640, 240, fig_alpha, t)
         elif figure == 'flow':
-            pass
+            draw_flow_compact(draw, W - 170, 640, fig_alpha, t)
         else:
             drawer(draw, W - 170, 640, 240, fig_alpha)
         # english annotation, monospace feel
         note = 'COMPOUND × N' if figure in ('brain', 'gear', 'bars') else 'PIPELINE :: OK'
-        draw.text((W - 300, 520), note, font=small_font, fill=(140, 170, 255, int(160 * fig_alpha)))
+        draw.text((W - 260, 330 if figure == 'flow' else 520), note, font=small_font, fill=(140, 170, 255, int(160 * fig_alpha)))
         # brand watermark
         draw.text((W / 2 - 90, 900), brand, font=font(FONT_BOLD, 30),
                   fill=(255, 255, 255, 60))
