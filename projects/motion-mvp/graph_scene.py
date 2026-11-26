@@ -382,86 +382,86 @@ def draw_flow_compact(draw, cx, cy, alpha, t):
 
 
 def render_insight(out, title, items, highlight, subtitle, seconds, figure='brain',
-                   brand='小千 · 概念解说', figure_size=280):
+                   brand='小千 · 概念解说', figure_size=190):
+    """Fixed zoning: header / text column / figure column / highlight / subtitle."""
     frames_dir = Path(out).with_suffix('')
     frames_dir.mkdir(parents=True, exist_ok=True)
     total = int(seconds * FPS)
-    title_font = font(FONT_BOLD, 52)
-    item_font = font(FONT_REG, 30)
-    small_font = font(FONT_REG, 22)
-    highlight_font = font(FONT_BOLD, 44)
-    sub_font = font(FONT_REG, 34)
+    item_font = font(FONT_REG, 28)
+    small_font = font(FONT_REG, 21)
+    highlight_font = font(FONT_BOLD, 40)
+    sub_font = font(FONT_REG, 32)
     for index in range(total):
         t = index / FPS
+        breathe = 0.86 + 0.14 * math.sin(t * 2.2)
         image = Image.new('RGB', (W, H), '#05070f')
         draw = ImageDraw.Draw(image, 'RGBA')
         draw.rectangle([0, 0, W, H], fill='#05070f')
-        mesh(draw, 30, 260)
-        mesh(draw, 950, 1130)
-        # header: three title lines, centered
-        title_lines = wrap_text(title, 46, W - 100, bold=True)[:3]
+        mesh(draw, 20, 230)
+        mesh(draw, 930, 1090)
+        # header zone
+        title_lines = wrap_text(title, 44, W - 110, bold=True)[:2]
         for line_index, line in enumerate(title_lines):
-            f = font(FONT_BOLD, 46)
+            f = font(FONT_BOLD, 44)
             x = (W - f.getlength(line)) / 2
-            y = 70 + line_index * 62
-            draw.text((x + 2, y + 2), line, font=f, fill=(0, 0, 0, 160))
+            y = 80 + line_index * 58
+            draw.text((x + 2, y + 2), line, font=f, fill=(0, 0, 0, 150))
             draw.text((x, y), line, font=f, fill=(255, 255, 255, 245))
-        # items column
-        y = 330
+        # divider between text and figure columns
+        draw.line([(470, 300), (470, 660)], fill=(90, 130, 255, int(70 * breathe)), width=1)
+        # text column
+        y = 310
         for item_index, item in enumerate(items[:3]):
-            appear = ease((t - 0.6 - item_index * 0.55) / 0.5)
+            appear = ease((t - 0.5 - item_index * 0.5) / 0.5)
             if appear <= 0:
                 continue
-            num = f'{item_index + 1:02d}'
-            draw.rounded_rectangle([MARGIN, y + 2, MARGIN + 58, y + 40], radius=6,
-                                   fill=(80, 120, 255, int(40 * appear)),
-                                   outline=(120, 160, 255, int(180 * appear)))
-            nf = font(FONT_REG, 22)
-            draw.text((MARGIN + 12, y + 10), num, font=nf,
-                      fill=(180, 200, 255, int(220 * appear)))
-            lines = wrap_text(item, 30, 360)
-            for line_index, line in enumerate(lines[:2]):
-                draw.text((MARGIN + 72, y + line_index * 40), line, font=item_font,
-                          fill=(226, 232, 240, int(220 * appear)))
-            y += 40 * min(2, len(lines)) + 26
-        # highlight statement with boxed keyword
-        if highlight:
-            appear = ease((t - 1.4) / 0.6)
-            if appear > 0:
-                hy = y + 24
-                lines = wrap_text(highlight, 40, 420, bold=True)[:2]
-                hfont = font(FONT_BOLD, 40)
-                box_h = len(lines) * 54 + 18
-                draw.rounded_rectangle([MARGIN - 8, hy - 8, MARGIN + 430, hy + box_h],
-                                       radius=8, fill=(255, 255, 255, int(26 * appear)),
-                                       outline=(255, 255, 255, int(110 * appear)))
-                for line_index, line in enumerate(lines):
-                    draw.text((MARGIN, hy + line_index * 54), line, font=hfont,
-                              fill=(255, 255, 255, int(242 * appear)))
-        # figure on the right
-        fig_alpha = ease((t - 0.3) / 0.7)
+            draw.rounded_rectangle([MARGIN, y + 2, MARGIN + 52, y + 36], radius=6,
+                                   fill=(80, 120, 255, int(36 * appear)),
+                                   outline=(120, 160, 255, int(170 * appear)))
+            nf = font(FONT_REG, 20)
+            draw.text((MARGIN + 11, y + 9), f'{item_index + 1:02d}', font=nf,
+                      fill=(180, 200, 255, int(215 * appear)))
+            lines = wrap_text(item, 28, 340)
+            for line_index, line in enumerate(lines[:3]):
+                draw.text((MARGIN + 64, y + line_index * 36), line, font=item_font,
+                          fill=(226, 232, 240, int(215 * appear)))
+            y += 36 * min(3, len(lines)) + 26
+        # figure column, breathing alpha
+        fig_alpha = ease((t - 0.3) / 0.7) * breathe
         drawer = FIGURES.get(figure, draw_brain)
         if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
-            drawer(draw, W - 170, 640, 240, fig_alpha, t)
+            drawer(draw, W - 150, 430, 160, fig_alpha, t)
         elif figure == 'flow':
-            draw_flow_compact(draw, W - 170, 640, fig_alpha, t)
+            draw_flow_compact(draw, W - 150, 430, fig_alpha, t)
         else:
-            drawer(draw, W - 170, 640, 240, fig_alpha)
-        # english annotation, monospace feel
+            drawer(draw, W - 150, 430, 160, fig_alpha)
         note = 'COMPOUND × N' if figure in ('brain', 'gear', 'bars') else 'PIPELINE :: OK'
-        draw.text((W - 260, 330 if figure == 'flow' else 520), note, font=small_font, fill=(140, 170, 255, int(160 * fig_alpha)))
-        # brand watermark
-        draw.text((W / 2 - 90, 900), brand, font=font(FONT_BOLD, 30),
-                  fill=(255, 255, 255, 60))
-        draw.text((W / 2 - 120, 940), '在这里看得更远一点', font=small_font,
-                  fill=(255, 255, 255, 45))
-        # subtitle band
+        draw.text((W - 280, 610), note, font=small_font,
+                  fill=(140, 170, 255, int(150 * fig_alpha)))
+        # highlight zone (full width, below both columns)
+        if highlight:
+            appear = ease((t - 1.3) / 0.6)
+            if appear > 0:
+                lines = wrap_text(highlight, 40, W - 160, bold=True)[:2]
+                box_h = len(lines) * 50 + 24
+                draw.rounded_rectangle([MARGIN - 10, 640, W - MARGIN + 10, 640 + box_h],
+                                       radius=10, fill=(255, 255, 255, int(24 * appear * breathe)),
+                                       outline=(255, 255, 255, int(120 * appear)))
+                for line_index, line in enumerate(lines):
+                    draw.text((MARGIN, 652 + line_index * 50), line, font=highlight_font,
+                              fill=(255, 255, 255, int(244 * appear)))
+        # brand
+        draw.text((W / 2 - 88, 760), brand, font=font(FONT_BOLD, 28),
+                  fill=(255, 255, 255, 62))
+        draw.text((W / 2 - 118, 798), '在这里看得更远一点', font=small_font,
+                  fill=(255, 255, 255, 46))
+        # subtitle zone
         sub_alpha = ease((t - 0.2) / 0.6) * 230
-        draw.rectangle([0, 1030, W, 1160], fill=(0, 0, 0, int(sub_alpha * 0.55)))
-        sub_lines = wrap_text(subtitle, 34, W - 140)
+        draw.rectangle([0, 880, W, 1000], fill=(0, 0, 0, int(sub_alpha * 0.55)))
+        sub_lines = wrap_text(subtitle, 32, W - 140)
         for line_index, line in enumerate(sub_lines[:2]):
             f = sub_font
-            draw.text(((W - f.getlength(line)) / 2, 1056 + line_index * 44), line,
+            draw.text(((W - f.getlength(line)) / 2, 900 + line_index * 44), line,
                       font=f, fill=(255, 255, 255, int(sub_alpha)))
         progress = min(1.0, t / seconds)
         draw.rectangle([0, H - 6, int(W * progress), H], fill=(80, 120, 255, 220))
@@ -473,3 +473,27 @@ def render_insight(out, title, items, highlight, subtitle, seconds, figure='brai
         path.unlink()
     frames_dir.rmdir()
     return out
+
+
+def draw_flow_compact(draw, cx, cy, alpha, t):
+    """Vertical three-step flow that fits the right-hand figure column."""
+    labels = ['输入', '计算', '输出']
+    box_w, box_h, gap = 190, 66, 22
+    top = cy - (box_h * 3 + gap * 2) / 2
+    for index, text in enumerate(labels):
+        y = top + index * (box_h + gap)
+        draw.rounded_rectangle([cx - box_w / 2, y, cx + box_w / 2, y + box_h], radius=12,
+                               fill=(13, 20, 38, int(235 * alpha)),
+                               outline=ACCENT2 + (int(220 * alpha),), width=2)
+        f = font(FONT_BOLD, 26)
+        draw.text((cx - f.getlength(text) / 2, y + 18), text, font=f,
+                  fill=(255, 255, 255, int(225 * alpha)))
+        if index < 2:
+            ax = cx
+            ay0 = y + box_h + 2
+            for dash in range(3):
+                offset = (t * 50 + dash * 7) % 18
+                draw.line([(ax, ay0 + offset), (ax, ay0 + offset + 6)],
+                          fill=ACCENT + (int(200 * alpha),), width=3)
+            dot_y = ay0 + 4 + (t * 50) % 18
+            draw.ellipse([ax - 3, dot_y - 3, ax + 3, dot_y + 3], fill=ACCENT2 + (int(230 * alpha),))
