@@ -74,25 +74,8 @@ def glass_panel(draw, box, alpha=22, brackets=True):
         corner_brackets(draw, (x0, y0, x1, y1), ACCENT2, alpha=170, size=22, width=2)
 
 
-def wrap_text(text, size, max_width, bold=False):
-    f = font(FONT_BOLD if bold else FONT_REG, size)
-    lines, current = [], ''
-    for char in text:
-        candidate = current + char
-        if f.getlength(candidate) > max_width and current:
-            lines.append(current)
-            current = char
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
-    return lines
-
-
-
 
 def fit_font(text, max_w, max_h, start=28, pad=16, bold=True):
-    """Shrink until the text fits the box with a consistent padding."""
     size = start
     while size > 12:
         f = font(FONT_BOLD if bold else FONT_REG, size)
@@ -103,7 +86,6 @@ def fit_font(text, max_w, max_h, start=28, pad=16, bold=True):
 
 
 def label_box(draw, x, y, text, w, h, outline, fill=None, pad=16, start=30, text_color=(255, 255, 255)):
-    """Box with text fitted and optically centered; identical padding everywhere."""
     f, size = fit_font(text, w, h, start=start, pad=pad)
     if fill:
         draw.rounded_rectangle([x, y, x + w, y + h], radius=10, fill=fill,
@@ -114,6 +96,37 @@ def label_box(draw, x, y, text, w, h, outline, fill=None, pad=16, start=30, text
     asc, desc = f.getmetrics()
     th = asc + desc
     draw.text((x + (w - tw) / 2, y + (h - th) / 2 + 2), text, font=f, fill=text_color)
+
+
+def _tokens(text):
+    tokens, buf = [], ''
+    for ch in text:
+        if ch.isascii() and (ch.isalnum() or ch in "-'"):
+            buf += ch
+        else:
+            if buf:
+                tokens.append(buf)
+                buf = ''
+            tokens.append(ch)
+    if buf:
+        tokens.append(buf)
+    return tokens
+
+
+def wrap_text(text, size, max_width, bold=False):
+    """Wrap by CJK character but keep Latin words whole."""
+    f = font(FONT_BOLD if bold else FONT_REG, size)
+    lines, current = [], ''
+    for token in _tokens(text):
+        candidate = current + token
+        if f.getlength(candidate) > max_width and current:
+            lines.append(current)
+            current = token
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
 
 
 def draw_brain(draw, cx, cy, scale, alpha):
@@ -511,3 +524,60 @@ def draw_flow_compact(draw, cx, cy, alpha, t):
                           fill=ACCENT + (int(200 * alpha),), width=3)
             dot_y = ay0 + 4 + (t * 50) % 18
             draw.ellipse([ax - 3, dot_y - 3, ax + 3, dot_y + 3], fill=ACCENT2 + (int(230 * alpha),))
+
+
+def render_title_card(out, title, kicker='概念解说', subtitle='', seconds=3.0, figure='chip'):
+    """Opening card: background art, kicker, fitted title and a rule."""
+    frames_dir = Path(out).with_suffix('')
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    total = int(seconds * FPS)
+    for index in range(total):
+        t = index / FPS
+        appear = ease(t / 0.6)
+        draw_t = t
+        image = Image.new('RGB', (W, H), '#05070f')
+        draw = ImageDraw.Draw(image, 'RGBA')
+        draw.rectangle([0, 0, W, H], fill='#05070f')
+        mesh(draw, 80, 420)
+        mesh(draw, 900, 1200)
+        for radius in (170, 260, 350):
+            draw.ellipse([W / 2 - radius, 430 - radius, W / 2 + radius, 430 + radius],
+                         outline=(90, 130, 255, 14), width=1)
+        drawer = FIGURES.get(figure, draw_chip)
+        if figure in ('triangle', 'bars', 'split', 'tokens', 'gear', 'database'):
+            drawer(draw, W / 2, 380, 240, 0.55 * appear, draw_t)
+        elif figure == 'flow':
+            draw_flow_compact(draw, W / 2, 380, 0.5 * appear, draw_t)
+        else:
+            drawer(draw, W / 2, 380, 240, 0.55 * appear)
+        # kicker
+        kf = font(FONT_REG, 24)
+        kw = kf.getlength(kicker) + 44
+        draw.rounded_rectangle([MARGIN, 640, MARGIN + kw, 688], radius=12,
+                               fill=(90, 130, 255, int(34 * appear)),
+                               outline=(120, 160, 255, int(140 * appear)))
+        draw.text((MARGIN + 22, 650), kicker, font=kf, fill=(190, 205, 255, int(230 * appear)))
+        # title, fitted
+        lines = wrap_text(title, 54, W - MARGIN * 2, bold=True)[:3]
+        y = 720
+        for line in lines:
+            f = font(FONT_BOLD, 54)
+            draw.text((MARGIN, y + 2), line, font=f, fill=(0, 0, 0, 150))
+            draw.text((MARGIN, y), line, font=f, fill=(255, 255, 255, int(246 * appear)))
+            y += 72
+        # rule
+        draw.rounded_rectangle([MARGIN, y + 10, MARGIN + int(180 * appear), y + 17],
+                               radius=3, fill=(90, 130, 255, 235))
+        if subtitle:
+            sf = font(FONT_REG, 28)
+            for line_index, line in enumerate(wrap_text(subtitle, 28, W - MARGIN * 2)[:2]):
+                draw.text((MARGIN, y + 48 + line_index * 40), line, font=sf,
+                          fill=(200, 208, 225, int(210 * appear)))
+        image.save(frames_dir / f'{index:04d}.png')
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS),
+                    '-i', str(frames_dir / '%04d.png'), '-c:v', 'libx264', '-preset',
+                    'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', str(out)], check=True)
+    for path in frames_dir.glob('*.png'):
+        path.unlink()
+    frames_dir.rmdir()
+    return out

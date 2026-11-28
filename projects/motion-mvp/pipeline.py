@@ -266,12 +266,21 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
         clips.append(clip_path)
         audios.append(audio_path)
         print(f'scene {index}: {clip_dur:.1f}s {scene.get("text", "")[:30]}', flush=True)
-    title_seconds, cta_seconds = 2.6, 3.2
+    title_seconds, cta_seconds = 3.0, 3.2
     title = work / 'title.mp4'
     cta = work / 'cta.mp4'
-    title_lines = wrap(title_text, 7).split('\n')
-    card_clip(title, title_lines, title_seconds)
-    card_clip(cta, wrap(cta_text, 9).split('\n') + ['路过记得拐进来'], cta_seconds, bg='#1f2a44')
+    if style in ('insight', 'graphic'):
+        import graph_scene
+        graph_scene.render_title_card(str(title), title_text,
+                                      kicker='科技解说' if theme == 'tech' else '解说',
+                                      subtitle='', seconds=title_seconds,
+                                      figure='chip')
+        graph_scene.render_title_card(str(cta), cta_text, kicker='',
+                                      subtitle='', seconds=cta_seconds, figure='flow')
+    else:
+        title_lines = wrap(title_text, 7).split('\n')
+        card_clip(title, title_lines, title_seconds)
+        card_clip(cta, wrap(cta_text, 9).split('\n') + ['路过记得拐进来'], cta_seconds, bg='#1f2a44')
     clips = [title] + clips + [cta]
     with (work / 'audio.txt').open('w') as handle:
         for item in audios:
