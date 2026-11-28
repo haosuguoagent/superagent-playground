@@ -194,7 +194,7 @@ def draw_bars(draw, cx, cy, scale, alpha, t):
 def draw_split(draw, cx, cy, scale, alpha, t):
     """A sentence block being cut apart: slicing line sweeps, pieces separate."""
     a = int(230 * alpha)
-    block_w, block_h = 420, 96
+    block_w, block_h = scale * 1.5, scale * 0.36
     gap = ease((t - 1.0) / 0.9) * 26
     cut = ease((t - 0.6) / 0.8)
     pieces = 3
@@ -206,7 +206,7 @@ def draw_split(draw, cx, cy, scale, alpha, t):
                                outline=ACCENT2 + (a,), width=2)
         for line in range(2):
             y = cy - 16 + line * 26
-            draw.line([(x0 + 14, y), (x0 + piece_w - 26, y)],
+            draw.line([(x0 + 10, y), (x0 + piece_w - 14, y)],
                       fill=(226, 232, 240, int(120 * alpha)), width=3)
     # slicing beam
     if 0 < cut < 1:
@@ -220,7 +220,7 @@ def draw_split(draw, cx, cy, scale, alpha, t):
 def draw_tokens(draw, cx, cy, scale, alpha, t):
     """A sentence bar resolving into token chips, one chip at a time."""
     a = int(230 * alpha)
-    bar_w, bar_h = 440, 64
+    bar_w, bar_h = scale * 1.5, scale * 0.24
     draw.rounded_rectangle([cx - bar_w / 2, cy - 120, cx + bar_w / 2, cy - 120 + bar_h],
                            radius=12, fill=(255, 255, 255, int(16 * alpha)),
                            outline=ACCENT2 + (int(150 * alpha),), width=2)
@@ -229,7 +229,7 @@ def draw_tokens(draw, cx, cy, scale, alpha, t):
         draw.line([(cx - bar_w / 2 + 18, y), (cx + bar_w / 2 - 18, y)],
                   fill=(226, 232, 240, int(90 * alpha)), width=3)
     chips = 4
-    chip_w, chip_h, gap = 96, 64, 14
+    chip_w, chip_h, gap = scale * 0.34, scale * 0.22, scale * 0.05
     total = chips * chip_w + (chips - 1) * gap
     start_x = cx - total / 2
     for index in range(chips):

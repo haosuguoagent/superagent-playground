@@ -276,7 +276,8 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
                                       subtitle='', seconds=title_seconds,
                                       figure='chip')
         graph_scene.render_title_card(str(cta), cta_text, kicker='',
-                                      subtitle='', seconds=cta_seconds, figure='flow')
+                                      subtitle='音乐：Kevin MacLeod / CC BY', seconds=cta_seconds,
+                                      figure='flow')
     else:
         title_lines = wrap(title_text, 7).split('\n')
         card_clip(title, title_lines, title_seconds)
@@ -304,7 +305,17 @@ def build(brief, name='demo', count=5, theme='promo', style='photo'):
                     '-crf', '23', str(work / 'video.mp4')], check=True)
     total = duration(work / 'video.mp4')
     bed = work / 'music.m4a'
-    music_bed(bed, total, THEME['music'])
+    music_style = {'tech': 'tech', 'warm': 'ambient'}.get(THEME['music'], 'ambient')
+    src = Path('/home/haosuguo/motion-mvp/music') / f'{music_style}.mp3'
+    if src.exists():
+        fade_out = max(0.0, total - 1.5)
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-stream_loop', '-1',
+                        '-i', str(src), '-t', f'{total:.2f}',
+                        '-af', f'volume=0.32,afade=t=in:st=0:d=1.2,afade=t=out:st={fade_out:.2f}:d=1.5',
+                        '-c:a', 'aac', str(bed)], check=True)
+    else:
+        import gen_music
+        gen_music.build(music_style, total, str(bed))
     whoosh_file = work / 'whoosh.m4a'
     whoosh(whoosh_file)
     offsets = []
